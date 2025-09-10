@@ -1,0 +1,28 @@
+:root{
+    --cor-primaria: #ee4d2d;
+    --gradiente-primario: linear-gradient(#2de1ee, #9437ff);
+}
+header{
+    background: var(--gradiente-primario);
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 120px;
+    position: fixed;
+}
+nav{
+    display: flex;
+    justify-content: space-between;
+}
+nav>ul{
+    margin: 0px;
+    display: flex;
+}
+nav>ul>li{
+    list-style: none;
+    padding: 0px;
+}
+nav>ul>li>a{
+    padding: 0px 4px;
+}

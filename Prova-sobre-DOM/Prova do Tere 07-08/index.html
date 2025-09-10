@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Prova do Tere</title>
+</head>
+<body>
+    <div class="questao1">
+        <h1>Questão 1: Explique o que é o DOM com suas palavras.</h1>
+        <p id="DOM">DOM ou Document Objetc Model, pode ser dito como uma árvore, que cada galho pode ser removido, editado ou adiconado, atráves do uso de linguagem de script. Assim tornando o codígo web muito mais dinâmico.</p>
+    </div>
+    
+    <h1>Questão 2: Criação de Botão para Trocar Cor do Texto da Questão 1</h1>
+    <div id="trocarCor">
+    </div>
+    <button type="button" id="botao">Troca a cor questão 1</button>
+
+    <h1>Questão 3: Inserir Dados em uma Tabela através de Manipulação do DOM</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Idade</th>
+                <th>Cidade</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            
+        </tbody>
+    </table>
+
+
+    <input type="text" id="nome" placeholder="Nome">
+    <input type="number" id="idade" placeholder="Idade">
+    <input type="text" id="cidade" placeholder="Cidade">
+    <button onclick="adicionarLinha()">Adicionar Linha</button>
+
+    <h1>Questão 4: Adicionar Dados Predefinidos na Tabela</h1>
+    <button onclick="adicionarTere()">Adicionar Tere</button>
+
+
+    <h1>Obrigado Por Avaliar Minha Prova</h1>
+
+    <div class="imagem">
+        <img alt="coracao" src="https://media.istockphoto.com/id/936563406/pt/vetorial/heart-shape.jpg?s=612x612&w=0&k=20&c=WJwxJlSftmWn7UaKAtemfSk-YDctzlKuM4NWLHJrl7M=">
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
