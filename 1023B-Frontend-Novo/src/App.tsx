@@ -3,10 +3,10 @@ import './App.css'
 
 interface ProdutoType {
   id: number
-  name: string
-  price: number
+  nome: string
+  preco: number
   urlfoto: string
-  description: string
+  descricao: string
 }
 
 function App() {
@@ -24,9 +24,9 @@ function App() {
       <ul style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
         {produtos.map(produto => (
           <li key={produto.id} style={{ margin: '10px' }}>
-            <img src={produto.urlfoto} alt={produto.name} width={200} />
-            <p>{produto.description}</p>
-            <p>R$ {produto.price}</p>
+            <img src={produto.urlfoto} alt={produto.nome} width={200} />
+            <p>{produto.descricao}</p>
+            <p>R$ {produto.preco}</p>
           </li>
         ))}
       </ul>
