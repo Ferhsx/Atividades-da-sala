@@ -11,12 +11,24 @@ interface ProdutoType {
 
 function App() {
   const [produtos, setProdutos] = useState<ProdutoType[]>([])
+  const [carrinho, setCarrinho] = useState<{produto: ProdutoType, quantidade: number}[]>([]);
 
   useEffect(() => {
     fetch('/api/produtos')
       .then(response => response.json())
       .then(data => setProdutos(data))
-  }, [])
+
+      fetch('/api/carrinho')
+      .then(response => response.json())
+      .then(data => {
+        // Mapeia os itens do carrinho para o formato esperado
+        const itensCarrinho = data.map((item: any) => ({
+          produto: item.produto,
+          quantidade: 1 // Você pode ajustar a quantidade conforme necessário
+        }));
+        setCarrinho(itensCarrinho);
+      });
+  }, []);
 
   const [formData, setFormData] = useState<Omit<ProdutoType, 'id'>>({ 
     nome: '',
@@ -68,6 +80,37 @@ function App() {
     }
   }
 
+
+  const handleAddToCart = async (produto: ProdutoType) => {
+    try {
+      const response = await fetch('/api/carrinho', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ produtoId: produto.id })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao adicionar ao carrinho');
+      }
+      
+      const novoItem = await response.json();
+      
+      // Atualiza o carrinho adicionando o novo item
+      setCarrinho(prevCarrinho => [
+        ...prevCarrinho,
+        { produto: novoItem.produto, quantidade: 1 }
+      ]);
+      
+      alert('Produto adicionado ao carrinho com sucesso!');
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('Erro ao adicionar ao carrinho. Por favor, tente novamente.');
+    }
+  };
+
+
   return (
     <>
     <div>Cadastro de Produtos</div>
@@ -115,6 +158,7 @@ function App() {
             <img src={produto.urlfoto} alt={produto.nome} width={200} />
             <p>{produto.descricao}</p>
             <p>R$ {produto.preco}</p>
+            <button onClick={() => handleAddToCart(produto)}>Adicionar ao carrinho</button>
           </li>
         ))}
       </ul>
