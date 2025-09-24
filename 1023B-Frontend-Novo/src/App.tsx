@@ -1,169 +1,130 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-
-interface ProdutoType {
-  id: number
-  nome: string
-  preco: number
-  urlfoto: string
-  descricao: string
-}
+import { useState } from 'react';
+import './App.css';
+import type { ProdutoType } from './types';
 
 function App() {
-  const [produtos, setProdutos] = useState<ProdutoType[]>([])
-  const [carrinho, setCarrinho] = useState<{produto: ProdutoType, quantidade: number}[]>([]);
-
-  useEffect(() => {
-    fetch('/api/produtos')
-      .then(response => response.json())
-      .then(data => setProdutos(data))
-
-      fetch('/api/carrinho')
-      .then(response => response.json())
-      .then(data => {
-        // Mapeia os itens do carrinho para o formato esperado
-        const itensCarrinho = data.map((item: any) => ({
-          produto: item.produto,
-          quantidade: 1 // Você pode ajustar a quantidade conforme necessário
-        }));
-        setCarrinho(itensCarrinho);
-      });
-  }, []);
-
-  const [formData, setFormData] = useState<Omit<ProdutoType, 'id'>>({ 
+  const [produto, setProduto] = useState<Omit<ProdutoType, 'id' | '_id'>>({
     nome: '',
     preco: 0,
     urlfoto: '',
     descricao: ''
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setProduto(prev => ({
       ...prev,
       [name]: name === 'preco' ? parseFloat(value) || 0 : value
     }));
   };
 
-  const handleForm = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
       const response = await fetch('/api/produtos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(produto),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Erro ao cadastrar produto');
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao adicionar produto');
       }
-      
-      // Limpar o formulário após o envio
-      setFormData({ 
+
+      // Limpa o formulário após o envio
+      setProduto({
         nome: '',
         preco: 0,
         urlfoto: '',
         descricao: ''
       });
       
-      // Atualizar a lista de produtos
-      const produtosResponse = await fetch('/api/produtos');
-      const data = await produtosResponse.json();
-      setProdutos(data);
-      
       alert('Produto cadastrado com sucesso!');
     } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao cadastrar produto. Por favor, tente novamente.');
-    }
-  }
-
-
-  const handleAddToCart = async (produto: ProdutoType) => {
-    try {
-      const response = await fetch('/api/carrinho', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ produtoId: produto.id })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erro ao adicionar ao carrinho');
-      }
-      
-      const novoItem = await response.json();
-      
-      // Atualiza o carrinho adicionando o novo item
-      setCarrinho(prevCarrinho => [
-        ...prevCarrinho,
-        { produto: novoItem.produto, quantidade: 1 }
-      ]);
-      
-      alert('Produto adicionado ao carrinho com sucesso!');
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao adicionar ao carrinho. Por favor, tente novamente.');
+      console.error('Erro ao cadastrar produto:', error);
+      alert((error as Error).message || 'Erro ao cadastrar produto');
     }
   };
 
-
   return (
-    <>
-    <div>Cadastro de Produtos</div>
-    <form onSubmit={handleForm} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px', marginBottom: '20px' }}>
-      <input 
-        type="text" 
-        name="nome" 
-        placeholder="Nome"
-        value={formData.nome}
-        onChange={handleInputChange}
-        required
-      />
-      <input 
-        type="number" 
-        name="preco" 
-        placeholder="Preço"
-        value={formData.preco || ''}
-        onChange={handleInputChange}
-        step="0.01"
-        min="0"
-        required
-      />
-      <input 
-        type="url" 
-        name="urlfoto" 
-        placeholder="URL da imagem"
-        value={formData.urlfoto}
-        onChange={handleInputChange}
-        required
-      />
-      <input 
-        type="text" 
-        name="descricao" 
-        placeholder="Descrição"
-        value={formData.descricao}
-        onChange={handleInputChange}
-        required
-      />
-      <button type="submit" style={{ padding: '8px', cursor: 'pointer' }}>Cadastrar</button>
-    </form>
-      <h1>Produtos</h1>
-      <ul style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
-        {produtos.map(produto => (
-          <li key={produto.id} style={{ margin: '10px' }}>
-            <img src={produto.urlfoto} alt={produto.nome} width={200} />
-            <p>{produto.descricao}</p>
-            <p>R$ {produto.preco}</p>
-            <button onClick={() => handleAddToCart(produto)}>Adicionar ao carrinho</button>
-          </li>
-        ))}
-      </ul>
-    </>
-  )
+    <div className="app-container">
+      <header>
+        <h1>Loja Online</h1>
+      </header>
+      
+      <main>
+        <section className="form-section">
+          <h2>Cadastrar Novo Produto</h2>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="nome">Nome do Produto</label>
+              <input
+                type="text"
+                id="nome"
+                name="nome"
+                value={produto.nome}
+                onChange={handleInputChange}
+                required
+                placeholder="Digite o nome do produto"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="preco">Preço (R$)</label>
+              <input
+                type="number"
+                id="preco"
+                name="preco"
+                value={produto.preco || ''}
+                onChange={handleInputChange}
+                step="0.01"
+                min="0"
+                required
+                placeholder="0,00"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="urlfoto">URL da Imagem</label>
+              <input
+                type="url"
+                id="urlfoto"
+                name="urlfoto"
+                value={produto.urlfoto}
+                onChange={handleInputChange}
+                required
+                placeholder="https://exemplo.com/imagem.jpg"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="descricao">Descrição</label>
+              <textarea
+                id="descricao"
+                name="descricao"
+                value={produto.descricao}
+                onChange={handleInputChange}
+                required
+                rows={4}
+                placeholder="Descreva o produto aqui..."
+              />
+            </div>
+            
+            <button type="submit" className="btn-primary">
+              Cadastrar Produto
+            </button>
+          </form>
+        </section>
+      </main>
+      
+      <footer>
+        <p>&copy; {new Date().getFullYear()} Loja Online - Todos os direitos reservados</p>
+      </footer>
+    </div>
+  );
 }
 
-export default App
+export default App;

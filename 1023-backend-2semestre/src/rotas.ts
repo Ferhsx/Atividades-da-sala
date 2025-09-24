@@ -1,19 +1,24 @@
-import Router from 'express'
-import CarrinhoController from './carrinho/carrinho'
-import ProdutosController from './produtos/produtos'
-import UsuariosController from './usuarios/usuarios'
+// No arquivo rotas.ts
+import Router from 'express';
+import CarrinhoController from './carrinho/carrinho';
+import ProdutosController from './produtos/produtos';
+import UsuariosController from './usuarios/usuarios';
 
-const rotas = Router()
-//carrinho rotas
-rotas.get('/carrinho', CarrinhoController.listar)
-rotas.post('/carrinho', CarrinhoController.adicionar)
+const rotas = Router();
 
-//produtos rotas
-rotas.get('/produtos', ProdutosController.listar)
-rotas.post('/produtos', ProdutosController.adicionar)
+// Rotas do carrinho
+rotas.get('/carrinho', CarrinhoController.listar);
+rotas.post('/carrinho', CarrinhoController.adicionar);
+rotas.put('/carrinho/:carrinhoId/itens/:itemId', CarrinhoController.atualizarQuantidade);
+rotas.delete('/carrinho/:carrinhoId/itens/:itemId', CarrinhoController.removerItem);
+rotas.delete('/carrinho/:carrinhoId', CarrinhoController.removerCarrinho);
 
-//usuarios rotas
-rotas.get('/usuarios', UsuariosController.listar)
-rotas.post('/usuarios', UsuariosController.adicionar)
+// Rotas de produtos
+rotas.get('/produtos', ProdutosController.listar);
+rotas.post('/produtos', ProdutosController.adicionar);
 
-export default rotas
+// Rotas de usuários
+rotas.get('/usuarios', UsuariosController.listar);
+rotas.post('/usuarios', UsuariosController.adicionar);
+
+export default rotas;
