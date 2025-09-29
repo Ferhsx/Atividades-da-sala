@@ -1,8 +1,8 @@
 // No arquivo rotas.ts
 import Router from 'express';
-import CarrinhoController from './carrinho/carrinho';
-import ProdutosController from './produtos/produtos';
-import UsuariosController from './usuarios/usuarios';
+import CarrinhoController from './carrinho/carrinho.js';
+import ProdutosController from './produtos/produtos.js';
+import UsuariosController from './usuarios/usuarios.js';
 
 const rotas = Router();
 
