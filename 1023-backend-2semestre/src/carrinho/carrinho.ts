@@ -1,11 +1,13 @@
+// Em c:\Users\04518405188\Documents\Atividades-da-sala\1023-backend-2semestre\src\carrinho\carrinho.ts
+
 import { Request, Response } from 'express';
-import { ObjectId } from 'mongodb';
+import { ObjectId, WithId } from 'mongodb';
 import { db } from '../database/banco-mongo';
 import { Carrinho, ItemCarrinho } from '../models/Carrinho';
 
-interface Produto {
+// Interface auxiliar para o tipo Produto, garantindo consistência
+export interface Produto {
     _id: ObjectId;
-    id?: number;
     nome: string;
     preco: number;
     urlfoto: string;
@@ -13,86 +15,77 @@ interface Produto {
 }
 
 class CarrinhoController {
+
+    // Método auxiliar para buscar um produto pelo ID
+    private async buscarProduto(produtoId: string): Promise<Produto | null> {
+        if (!ObjectId.isValid(produtoId)) return null;
+        return db.collection<Produto>('produtos').findOne({ _id: new ObjectId(produtoId) });
+    }
+
+    // Método auxiliar para calcular o total do carrinho
+    private calcularTotal(itens: ItemCarrinho[]): number {
+        return itens.reduce((total, item) => total + (item.produto.preco * item.quantidade), 0);
+    }
+
     // Adicionar item ao carrinho
-    async adicionar(req: Request, res: Response) {
+    adicionar = async (req: Request, res: Response) => {
         try {
             const { produtoId, quantidade = 1, usuarioId } = req.body;
-
             if (!produtoId || !usuarioId) {
-                return res.status(400).json({ 
-                    message: 'ID do produto e ID do usuário são obrigatórios' 
-                });
+                return res.status(400).json({ message: 'ID do produto e do usuário são obrigatórios' });
             }
 
-            // Busca o produto no banco de dados
+            if (Number(quantidade) <= 0) {
+                return res.status(400).json({ message: 'A quantidade deve ser um número positivo.' });
+            }
+
             const produto = await this.buscarProduto(produtoId);
             if (!produto) {
                 return res.status(404).json({ message: 'Produto não encontrado' });
             }
 
-            // Verifica se já existe um carrinho para o usuário
-            let carrinho = await db.collection<Carrinho>('carrinhos').findOne({
-                usuarioId: new ObjectId(usuarioId)
-            });
-
-            const itemCarrinho: ItemCarrinho = {
-                produtoId: produto._id,
-                nome: produto.nome,
-                preco: produto.preco,
-                quantidade: Number(quantidade),
-                urlfoto: produto.urlfoto
-            };
-
-            const dataAtual = new Date();
+            const query = { usuarioId: new ObjectId(usuarioId) };
+            let carrinho: WithId<Carrinho> | null = await db.collection<Carrinho>('carrinhos').findOne(query);
 
             if (!carrinho) {
-                // Cria um novo carrinho se não existir
-                const novoCarrinho: Carrinho = {
+                // Se não existe, cria um novo carrinho
+                const novoCarrinhoDoc: Carrinho = {
                     _id: new ObjectId(),
                     usuarioId: new ObjectId(usuarioId),
-                    itens: [itemCarrinho],
-                    total: produto.preco * Number(quantidade),
-                    criadoEm: dataAtual,
-                    atualizadoEm: dataAtual
+                    itens: [],
+                    total: 0,
+                    criadoEm: new Date(),
+                    atualizadoEm: new Date(),
                 };
-
-                await db.collection<Carrinho>('carrinhos').insertOne(novoCarrinho);
-                return res.status(201).json(novoCarrinho);
-            } else {
-                // Atualiza o carrinho existente
-                const itemExistenteIndex = carrinho.itens.findIndex(
-                    item => item.produtoId.toString() === produtoId
-                );
-
-                if (itemExistenteIndex >= 0) {
-                    // Atualiza a quantidade se o item já existir
-                    carrinho.itens[itemExistenteIndex].quantidade += Number(quantidade);
-                } else {
-                    // Adiciona um novo item
-                    carrinho.itens.push(itemCarrinho);
-                }
-
-                // Atualiza o total e a data de atualização
-                carrinho.total = this.calcularTotal(carrinho.itens);
-                carrinho.atualizadoEm = dataAtual;
-
-                await db.collection<Carrinho>('carrinhos').updateOne(
-                    { _id: carrinho._id },
-                    { 
-                        $set: { 
-                            itens: carrinho.itens,
-                            total: carrinho.total,
-                            atualizadoEm: carrinho.atualizadoEm
-                        } 
-                    }
-                );
-
-                const carrinhoAtualizado = await db.collection<Carrinho>('carrinhos').findOne({
-                    _id: carrinho._id
-                });
-
-                return res.status(200).json(carrinhoAtualizado);
+                const insertResult = await db.collection<Carrinho>('carrinhos').insertOne(novoCarrinhoDoc);
+                carrinho = { ...novoCarrinhoDoc, _id: insertResult.insertedId };
             }
+
+            const itemIndex = carrinho.itens.findIndex(item => item.produto._id.toString() === produtoId);
+            if (itemIndex > -1) {
+                // Se o item já existe, atualiza a quantidade
+                carrinho.itens[itemIndex].quantidade += Number(quantidade);
+            } else {
+                // Se não, adiciona o novo item
+                carrinho.itens.push({
+                    _id: new ObjectId(),
+                    produto: produto,
+                    quantidade: Number(quantidade),
+                    criadoEm: new Date()
+                });
+            }
+
+            // Recalcula o total e atualiza o documento no banco
+            carrinho.total = this.calcularTotal(carrinho.itens);
+            carrinho.atualizadoEm = new Date();
+
+            const updatedDoc = await db.collection<Carrinho>('carrinhos').findOneAndUpdate(
+                { _id: carrinho._id },
+                { $set: { itens: carrinho.itens, total: carrinho.total, atualizadoEm: carrinho.atualizadoEm } },
+                { returnDocument: 'after' }
+            );
+
+            res.status(200).json(updatedDoc);
         } catch (error) {
             console.error('Erro ao adicionar item ao carrinho:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
@@ -100,29 +93,14 @@ class CarrinhoController {
     }
 
     // Listar itens do carrinho
-    async listar(req: Request, res: Response) {
+    listar = async (req: Request, res: Response) => {
         try {
             const { usuarioId } = req.query;
-
             if (!usuarioId) {
-                return res.status(400).json({ 
-                    message: 'ID do usuário é obrigatório' 
-                });
+                return res.status(400).json({ message: 'ID do usuário é obrigatório' });
             }
-
-            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({
-                usuarioId: new ObjectId(usuarioId as string)
-            });
-
-            if (!carrinho) {
-                return res.status(200).json({ 
-                    itens: [],
-                    total: 0,
-                    mensagem: 'Carrinho vazio' 
-                });
-            }
-
-            res.status(200).json(carrinho);
+            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({ usuarioId: new ObjectId(usuarioId as string) });
+            res.status(200).json(carrinho ? carrinho.itens : []);
         } catch (error) {
             console.error('Erro ao listar carrinho:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
@@ -130,195 +108,94 @@ class CarrinhoController {
     }
 
     // Atualizar quantidade de um item
-    async atualizarQuantidade(req: Request, res: Response) {
+    atualizarQuantidade = async (req: Request, res: Response) => {
         try {
-            const { carrinhoId, itemId } = req.params;
-            const { quantidade } = req.body;
-
-            if (!carrinhoId || !itemId || quantidade === undefined) {
-                return res.status(400).json({ 
-                    message: 'ID do carrinho, ID do item e quantidade são obrigatórios' 
-                });
+            const { itemId } = req.params;
+            const { quantidade, usuarioId } = req.body;
+            if (!itemId || quantidade === undefined || !usuarioId) {
+                return res.status(400).json({ message: 'IDs do item e usuário, e quantidade são obrigatórios' });
             }
 
-            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({
-                _id: new ObjectId(carrinhoId)
-            });
+            if (isNaN(Number(quantidade))) {
+                return res.status(400).json({ message: 'A quantidade deve ser um número válido.' });
+            }
 
+            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({ usuarioId: new ObjectId(usuarioId) });
             if (!carrinho) {
                 return res.status(404).json({ message: 'Carrinho não encontrado' });
             }
 
-            const itemIndex = carrinho.itens.findIndex(
-                item => item.produtoId.toString() === itemId
-            );
-
+            const itemIndex = carrinho.itens.findIndex(item => item._id.toString() === itemId);
             if (itemIndex === -1) {
                 return res.status(404).json({ message: 'Item não encontrado no carrinho' });
             }
 
-            // Atualiza a quantidade
-            carrinho.itens[itemIndex].quantidade = Number(quantidade);
-            
-            // Remove o item se a quantidade for zero ou menor
-            if (carrinho.itens[itemIndex].quantidade <= 0) {
-                carrinho.itens.splice(itemIndex, 1);
+            if (Number(quantidade) <= 0) {
+                carrinho.itens.splice(itemIndex, 1); // Remove se a quantidade for 0 ou menor
+            } else {
+                carrinho.itens[itemIndex].quantidade = Number(quantidade);
             }
 
-            // Atualiza o total e a data de atualização
             carrinho.total = this.calcularTotal(carrinho.itens);
-            carrinho.atualizadoEm = new Date();
-
-            // Se não há mais itens, remove o carrinho
-            if (carrinho.itens.length === 0) {
-                await db.collection<Carrinho>('carrinhos').deleteOne({
-                    _id: carrinho._id
-                });
-                return res.status(200).json({ 
-                    itens: [],
-                    total: 0,
-                    mensagem: 'Carrinho vazio' 
-                });
-            }
-
-            // Atualiza o carrinho
-            await db.collection<Carrinho>('carrinhos').updateOne(
+            const updatedDoc = await db.collection<Carrinho>('carrinhos').findOneAndUpdate(
                 { _id: carrinho._id },
-                { 
-                    $set: { 
-                        itens: carrinho.itens,
-                        total: carrinho.total,
-                        atualizadoEm: carrinho.atualizadoEm
-                    } 
-                }
+                { $set: { itens: carrinho.itens, total: carrinho.total, atualizadoEm: new Date() } },
+                { returnDocument: 'after' }
             );
-
-            res.status(200).json(carrinho);
+            res.status(200).json(updatedDoc);
         } catch (error) {
-            console.error('Erro ao atualizar quantidade do item:', error);
+            console.error('Erro ao atualizar quantidade:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     }
-
+    
     // Remover item do carrinho
-    async removerItem(req: Request, res: Response) {
+    removerItem = async (req: Request, res: Response) => {
         try {
-            const { carrinhoId, itemId } = req.params;
-
-            if (!carrinhoId || !itemId) {
-                return res.status(400).json({ 
-                    message: 'ID do carrinho e ID do item são obrigatórios' 
-                });
+            const { carrinhoId: usuarioId, itemId } = req.params;
+            if (!itemId || !usuarioId) {
+                return res.status(400).json({ message: 'IDs do item e usuário são obrigatórios' });
             }
 
-            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({
-                _id: new ObjectId(carrinhoId)
-            });
-
+            const carrinho = await db.collection<Carrinho>('carrinhos').findOne({ usuarioId: new ObjectId(usuarioId) });
             if (!carrinho) {
                 return res.status(404).json({ message: 'Carrinho não encontrado' });
             }
 
-            const itemIndex = carrinho.itens.findIndex(
-                item => item.produtoId.toString() === itemId
-            );
-
-            if (itemIndex === -1) {
+            const novosItens = carrinho.itens.filter(item => item._id.toString() !== itemId);
+            if (novosItens.length === carrinho.itens.length) {
                 return res.status(404).json({ message: 'Item não encontrado no carrinho' });
             }
 
-            // Remove o item
-            carrinho.itens.splice(itemIndex, 1);
-
-            // Atualiza o total e a data de atualização
-            carrinho.total = this.calcularTotal(carrinho.itens);
-            carrinho.atualizadoEm = new Date();
-
-            // Se não há mais itens, remove o carrinho
-            if (carrinho.itens.length === 0) {
-                await db.collection<Carrinho>('carrinhos').deleteOne({
-                    _id: carrinho._id
-                });
-                return res.status(200).json({ 
-                    itens: [],
-                    total: 0,
-                    mensagem: 'Carrinho vazio' 
-                });
-            }
-
-            // Atualiza o carrinho
-            await db.collection<Carrinho>('carrinhos').updateOne(
+            carrinho.total = this.calcularTotal(novosItens);
+            const updatedDoc = await db.collection<Carrinho>('carrinhos').findOneAndUpdate(
                 { _id: carrinho._id },
-                { 
-                    $set: { 
-                        itens: carrinho.itens,
-                        total: carrinho.total,
-                        atualizadoEm: carrinho.atualizadoEm
-                    } 
-                }
+                { $set: { itens: novosItens, total: carrinho.total, atualizadoEm: new Date() } },
+                { returnDocument: 'after' }
             );
-
-            res.status(200).json(carrinho);
+            res.status(200).json(updatedDoc);
         } catch (error) {
-            console.error('Erro ao remover item do carrinho:', error);
+            console.error('Erro ao remover item:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     }
 
     // Remover carrinho inteiro
-    async removerCarrinho(req: Request, res: Response) {
+    removerCarrinho = async (req: Request, res: Response) => {
         try {
-            const { carrinhoId } = req.params;
-
-            if (!carrinhoId) {
-                return res.status(400).json({ 
-                    message: 'ID do carrinho é obrigatório' 
-                });
+            const { carrinhoId: usuarioId } = req.params;
+            if (!usuarioId) {
+                return res.status(400).json({ message: 'ID do usuário é obrigatório' });
             }
-
-            const result = await db.collection<Carrinho>('carrinhos').deleteOne({
-                _id: new ObjectId(carrinhoId)
-            });
-
+            const result = await db.collection<Carrinho>('carrinhos').deleteOne({ usuarioId: new ObjectId(usuarioId) });
             if (result.deletedCount === 0) {
                 return res.status(404).json({ message: 'Carrinho não encontrado' });
             }
-
             res.status(200).json({ message: 'Carrinho removido com sucesso' });
         } catch (error) {
             console.error('Erro ao remover carrinho:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
-    }
-
-    // Métodos auxiliares
-    private async buscarProduto(produtoId: string): Promise<Produto | null> {
-        try {
-            let produto: Produto | null = null;
-            
-            if (ObjectId.isValid(produtoId)) {
-                produto = await db.collection<Produto>('produtos').findOne({ 
-                    _id: new ObjectId(produtoId) 
-                });
-            }
-            
-            if (!produto) {
-                produto = await db.collection<Produto>('produtos').findOne({ 
-                    _id: new ObjectId(produtoId) 
-                });
-            }
-
-            return produto;
-        } catch (error) {
-            console.error('Erro ao buscar produto:', error);
-            return null;
-        }
-    }
-
-    private calcularTotal(itens: ItemCarrinho[]): number {
-        return itens.reduce((total, item) => {
-            return total + (item.preco * item.quantidade);
-        }, 0);
     }
 }
 

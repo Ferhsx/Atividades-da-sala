@@ -20,5 +20,6 @@ rotas.post('/produtos', ProdutosController.adicionar);
 // Rotas de usuários
 rotas.get('/usuarios', UsuariosController.listar);
 rotas.post('/usuarios', UsuariosController.adicionar);
+rotas.post('/usuarios/login', UsuariosController.login);
 
 export default rotas;

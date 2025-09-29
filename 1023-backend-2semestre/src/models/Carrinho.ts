@@ -1,11 +1,18 @@
 import { ObjectId } from 'mongodb';
 
-export interface ItemCarrinho {
-  produtoId: ObjectId;
+interface ProdutoSimplificado {
+  _id: ObjectId;
   nome: string;
   preco: number;
+  urlfoto: string;
+  descricao: string;
+}
+
+export interface ItemCarrinho {
+  _id: ObjectId;
+  produto: ProdutoSimplificado;
   quantidade: number;
-  urlfoto?: string;
+  criadoEm: Date;
 }
 
 export interface Carrinho {
