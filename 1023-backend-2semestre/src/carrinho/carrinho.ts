@@ -2,8 +2,8 @@
 
 import { Request, Response } from 'express';
 import { ObjectId, WithId } from 'mongodb';
-import { db } from '../database/banco-mongo';
-import { Carrinho, ItemCarrinho } from '../models/Carrinho';
+import { db } from '../database/banco-mongo.js';
+import { Carrinho, ItemCarrinho } from '../models/Carrinho.js';
 
 // Interface auxiliar para o tipo Produto, garantindo consistência
 export interface Produto {
